@@ -78,7 +78,7 @@ describe('main', () => {
 	});
 
 	describe('getL10nXlf', () => {
-		it('works', () => {
+		it('works', async () => {
 			const map = new Map();
 			map.set('a', {
 				'Hello World': 'Hello World',
@@ -141,7 +141,7 @@ describe('main', () => {
 	});
 
 	describe('getL10nPseudoLocalized', () => {
-		it('works', () => {
+		it('works', async () => {
 			const l10nContents = {
 				// base case
 				Hello: 'Hello',
@@ -158,7 +158,7 @@ describe('main', () => {
 				}
 			};
 
-			const result = getL10nPseudoLocalized(l10nContents);
+			const result = await getL10nPseudoLocalized(l10nContents);
 			expect(JSON.stringify(result)).toBe('{"Hello":"Ħḗḗŀŀǿǿ","$(alert) Hello":"$(alert) Ħḗḗŀŀǿǿ","[hello](command:hello)":"[ħḗḗŀŀǿǿ](command:hello)","{Hello {this}}":"{Ħḗḗŀŀǿǿ {this}}","Hello/Hello":"Ħḗḗŀŀǿǿ"}');
 		});
 	});

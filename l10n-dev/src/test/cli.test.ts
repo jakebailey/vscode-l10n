@@ -159,7 +159,7 @@ describe('cli', () => {
 			mock.restore();
 		});
 		it('big file of test cases', async () => {
-			cli.l10nGeneratePseudo(['bundle.l10n.json'], 'qps-ploc');
+			await cli.l10nGeneratePseudo(['bundle.l10n.json'], 'qps-ploc');
 			const result = readFileSync('bundle.l10n.qps-ploc.json', 'utf8');
 			const actualLines = result.split(/\r?\n/);
 			const expectedLines = [

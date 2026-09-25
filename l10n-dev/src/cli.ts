@@ -45,7 +45,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 			await l10nImportXlf(invocation.paths, invocation.outDir);
 			break;
 		case 'generate-pseudo':
-			l10nGeneratePseudo(invocation.paths, invocation.language);
+			await l10nGeneratePseudo(invocation.paths, invocation.language);
 			break;
 		case 'generate-azure':
 			await l10nGenerateTranslationService(invocation.paths, invocation.languages, invocation.key, invocation.region);
@@ -168,13 +168,13 @@ export async function l10nImportXlf(paths: string[], outDir: string): Promise<vo
 	logger.log(`Wrote ${count} localized L10N JSON files to: ${outDir}`);
 }
 
-export function l10nGeneratePseudo(paths: string[], language: string): void {
+export async function l10nGeneratePseudo(paths: string[], language: string): Promise<void> {
 	logger.log('Searching for L10N JSON files...');
 
 	const matches = findFiles(paths.map(p => /(\.l10n\.json|package\.nls\.json)$/.test(p) ? p : path.posix.join(p, `{,!(node_modules)/**}`, '{*.l10n.json,package.nls.json}')));
 
 	for (const match of matches) {
-		const contents = getL10nPseudoLocalized(JSON.parse(readFileSync(path.resolve(match), 'utf8')));
+		const contents = await getL10nPseudoLocalized(JSON.parse(readFileSync(path.resolve(match), 'utf8')));
 		if (match.endsWith('.l10n.json')) {
 			const name = path.basename(match).split('.l10n.json')[0] ?? '';
 			writeFileSync(

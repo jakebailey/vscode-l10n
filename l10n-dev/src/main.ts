@@ -10,7 +10,7 @@ import { XLF } from "./xlf/xlf";
 import { azureTranslatorTranslate } from './translators/azure';
 import { pseudoLocalizedTranslate } from './translators/pseudo';
 
-export { l10nJsonDetails, l10nJsonFormat, l10nJsonMessageFormat, IScriptFile } from './common';
+export type { l10nJsonDetails, l10nJsonFormat, l10nJsonMessageFormat, IScriptFile } from './common';
 
 const analyzer = new ScriptAnalyzer();
 
@@ -109,12 +109,12 @@ export async function getL10nFilesFromXlf(xlfContents: string): Promise<l10nJson
  * @public
  * Get pseudo localized l10n data for a given l10n bundle
  * @param dataToLocalize - package.nls.json or bundle.l10n.json contents parsed
- * @returns l10nJsonFormat
+ * @returns Promise resolving to l10nJsonFormat
  */
-export function getL10nPseudoLocalized(dataToLocalize: l10nJsonFormat): l10nJsonFormat {
+export async function getL10nPseudoLocalized(dataToLocalize: l10nJsonFormat): Promise<l10nJsonFormat> {
 	logger.debug('Localizing data using pseudo-localization...');
 	
-	const result = pseudoLocalizedTranslate(dataToLocalize);
+	const result = await pseudoLocalizedTranslate(dataToLocalize);
 	logger.debug(`Pseudo-localized ${Object.keys(result).length} strings.`);
 	return result;
 }

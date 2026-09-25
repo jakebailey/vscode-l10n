@@ -1,3 +1,8 @@
 {
-	"extends": "../tsconfig.json"
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"isolatedModules": true,
+		"module": "Node20",
+		"moduleResolution": "Node16"
+	}
 }

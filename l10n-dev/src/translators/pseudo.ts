@@ -3,10 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from "pseudo-localization";
 import { l10nJsonFormat } from "../common";
 
-export function pseudoLocalizedTranslate(dataToLocalize: l10nJsonFormat): l10nJsonFormat {
+const pseudoLocalization = import("pseudo-localization");
+
+export async function pseudoLocalizedTranslate(dataToLocalize: l10nJsonFormat): Promise<l10nJsonFormat> {
+	const { pseudoLocalizeString } = await pseudoLocalization;
 	// deep clone
 	const contents = JSON.parse(JSON.stringify(dataToLocalize));
 	for (const key of Object.keys(contents)) {
@@ -16,14 +18,14 @@ export function pseudoLocalizedTranslate(dataToLocalize: l10nJsonFormat): l10nJs
 		let localized = '';
 		// escape command and icon syntax
 		for (const match of message.matchAll(/(?:\(command:\S+)|(?:\$\([A-Za-z-~]+\))|(?:\{\S+\})/g)) {
-			const section = localize(message.substring(index, match.index));
+			const section = pseudoLocalizeString(message.substring(index, match.index));
 			localized += section + match[0]!;
 			index = match.index! + match[0]!.length;
 		}
 
 		contents[key] = index === 0
-			? localize(message)
-			: localized + localize(message.substring(index));
+			? pseudoLocalizeString(message)
+			: localized + pseudoLocalizeString(message.substring(index));
 	}
 
 	return contents;
