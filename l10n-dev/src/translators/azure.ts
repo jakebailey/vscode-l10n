@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import MarkdownIt from 'markdown-it';
-import TextTranslationClient, { InputTextItem, TranslatedTextItemOutput, ErrorResponseOutput, TextTranslationClient as TranslationClient } from "@azure-rest/ai-translation-text";
+import TextTranslationClient, { isUnexpected, TranslatedTextItemOutput, TextTranslationClient as TranslationClient } from "@azure-rest/ai-translation-text";
 import { NodeHtmlMarkdown } from 'node-html-markdown';
 import { l10nJsonFormat } from '../common';
 
@@ -21,16 +21,16 @@ let client: TranslationClient | undefined;
  * @param config The config object
  * @returns 
  */
-function translate(body: InputTextItem[], languages: string[], config: { azureTranslatorKey: string, azureTranslatorRegion: string }) {
+function translate(body: { text: string }[], languages: string[], config: { azureTranslatorKey: string, azureTranslatorRegion: string }) {
 	client ??= TextTranslationClient('https://api.cognitive.microsofttranslator.com/', { key: config.azureTranslatorKey, region: config.azureTranslatorRegion });
-	const to = languages.join(',');
 	return client.path("/translate").post({
-		body,
-		queryParameters: {
-			to,
-			// extend this to allow for other languages
-			from: 'en',
-			textType: 'html'
+		body: {
+			inputs: body.map(item => ({
+				...item,
+				language: 'en',
+				textType: 'Html',
+				targets: languages.map(language => ({ language })),
+			})),
 		}
 	})
 }
@@ -42,9 +42,9 @@ function translate(body: InputTextItem[], languages: string[], config: { azureTr
  * @param config The config object
  * @returns 
  */
-async function batchTranslate(body: InputTextItem[], languages: string[], config: { azureTranslatorKey: string, azureTranslatorRegion: string }) {
+async function batchTranslate(body: { text: string }[], languages: string[], config: { azureTranslatorKey: string, azureTranslatorRegion: string }) {
 	const promises = [];
-	let partialBody: InputTextItem[] = [];
+	let partialBody: { text: string }[] = [];
 	let currentCharacterCount = 0;
 	for (const item of body) {
 		if (item.text.length > MAX_SIZE_OF_ARRAY_ELEMENT) {
@@ -71,15 +71,10 @@ async function batchTranslate(body: InputTextItem[], languages: string[], config
 
 	for (const response of responses) {
 		if (response.status === 'fulfilled') {
-			switch (response.value.status) {
-				case "200":
-					outputs.push(...(response.value.body as TranslatedTextItemOutput[]));
-					break;
-				default: {
-					const error = response.value.body as ErrorResponseOutput;
-					throw new Error(`Failed to translate: ${error.error.message}`);
-				}
+			if (isUnexpected(response.value)) {
+				throw new Error(`Failed to translate: ${response.value.body.error.message}`);
 			}
+			outputs.push(...response.value.body.value);
 		} else {
 			throw response.reason;
 		}
@@ -106,7 +101,7 @@ export async function azureTranslatorTranslate(dataToLocalize: l10nJsonFormat, l
 	md ??= new MarkdownIt();
 	client ??= TextTranslationClient('https://api.cognitive.microsofttranslator.com/', { key: config.azureTranslatorKey, region: config.azureTranslatorRegion });
 
-	const body: InputTextItem[] = [];
+	const body: { text: string }[] = [];
 	const keys = Object.keys(dataToLocalize);
 	for (const key of keys) {
 		const value = dataToLocalize[key];

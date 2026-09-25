@@ -43,7 +43,7 @@
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@azure-rest/ai-translation-text": "^1.0.0-beta.1",
+		"@azure-rest/ai-translation-text": "^2.0.0",
 		"debug": "^4.4.3",
 		"markdown-it": "^15.0.2",
 		"node-html-markdown": "^2.0.0",
