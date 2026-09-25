@@ -3,23 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { globSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
-import * as glob from 'glob';
 import { getL10nAzureLocalized, getL10nFilesFromXlf, getL10nJson, getL10nPseudoLocalized, getL10nXlf, l10nJsonFormat } from "./main";
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { logger, LogLevel } from "./logger";
 
-const GLOB_DEFAULTS = {
-	// We only want files.
-	nodir: true,
-	// Absolute paths are easier to work with.
-	absolute: true,
-	// Ultimately, we should remove this but I worry that folks have already taken advantage of the fact that we handled Windows paths.
-	// For now, we'll keep it, but in the future, we should remove it.
-	windowsPathsNoEscape: true
-};
+function findFiles(patterns: string[]): string[] {
+	return globSync(patterns.map(pattern => pattern.replace(/\\/g, '/'))).map(match => path.resolve(match));
+}
 
 yargs(hideBin(process.argv))
 .scriptName("vscode-l10n-dev")
@@ -163,10 +156,7 @@ yargs(hideBin(process.argv))
 export async function l10nExportStrings(paths: string[], outDir?: string): Promise<void> {
 	logger.log('Searching for TypeScript/JavaScript files...');
 
-	const matches = glob.sync(
-		paths.map(p => /\.(ts|tsx|js|jsx)$/.test(p) ? p : path.posix.join(p, '{,**}', '*.{ts,tsx,js,jsx}')),
-		GLOB_DEFAULTS
-	);
+	const matches = findFiles(paths.map(p => /\.(ts|tsx|js|jsx)$/.test(p) ? p : path.posix.join(p, '{,**}', '*.{ts,tsx,js,jsx}')));
 	const tsFileContents = matches.map(m => ({
 		extension: path.extname(m),
 		contents: readFileSync(path.resolve(m), 'utf8')
@@ -217,10 +207,7 @@ export async function l10nExportStrings(paths: string[], outDir?: string): Promi
 export function l10nGenerateXlf(paths: string[], language: string, outFile: string): void {
 	logger.log('Searching for L10N JSON files...');
 
-	const matches = glob.sync(
-		paths.map(p => /(\.l10n\.json|package\.nls\.json)$/.test(p) ? p : path.posix.join(p, `{,!(node_modules)/**}`, '{*.l10n.json,package.nls.json}')),
-		GLOB_DEFAULTS
-	);
+	const matches = findFiles(paths.map(p => /(\.l10n\.json|package\.nls\.json)$/.test(p) ? p : path.posix.join(p, `{,!(node_modules)/**}`, '{*.l10n.json,package.nls.json}')));
 
 	const l10nFileContents = new Map<string, l10nJsonFormat>();
 	for (const match of matches) {
@@ -246,10 +233,7 @@ export function l10nGenerateXlf(paths: string[], language: string, outFile: stri
 export async function l10nImportXlf(paths: string[], outDir: string): Promise<void> {
 	logger.log('Searching for XLF files...');
 
-	const matches = glob.sync(
-		paths.map(p => /\.xlf$/.test(p) ? p : path.posix.join(p, `{,!(node_modules)/**}`, '*.xlf')),
-		GLOB_DEFAULTS
-	);
+	const matches = findFiles(paths.map(p => /\.xlf$/.test(p) ? p : path.posix.join(p, `{,!(node_modules)/**}`, '*.xlf')));
 	const xlfFiles = matches.map(m => readFileSync(path.resolve(m), 'utf8'));
 	if (!xlfFiles.length) {
 		logger.log('No XLF files found.');
@@ -280,10 +264,7 @@ export async function l10nImportXlf(paths: string[], outDir: string): Promise<vo
 export function l10nGeneratePseudo(paths: string[], language: string): void {
 	logger.log('Searching for L10N JSON files...');
 
-	const matches = glob.sync(
-		paths.map(p => /(\.l10n\.json|package\.nls\.json)$/.test(p) ? p : path.posix.join(p, `{,!(node_modules)/**}`, '{*.l10n.json,package.nls.json}')),
-		GLOB_DEFAULTS
-	);
+	const matches = findFiles(paths.map(p => /(\.l10n\.json|package\.nls\.json)$/.test(p) ? p : path.posix.join(p, `{,!(node_modules)/**}`, '{*.l10n.json,package.nls.json}')));
 
 	for (const match of matches) {
 		const contents = getL10nPseudoLocalized(JSON.parse(readFileSync(path.resolve(match), 'utf8')));
@@ -311,10 +292,7 @@ export function l10nGeneratePseudo(paths: string[], language: string): void {
 export async function l10nGenerateTranslationService(paths: string[], languages: string[], key: string, region: string): Promise<void> {
 	logger.log('Searching for L10N JSON files...');
 
-	const matches = glob.sync(
-		paths.map(p => /(\.l10n\.json|package\.nls\.json)$/.test(p) ? p : path.posix.join(p, `{,!(node_modules)/**}`, '{*.l10n.json,package.nls.json}')),
-		GLOB_DEFAULTS
-	);
+	const matches = findFiles(paths.map(p => /(\.l10n\.json|package\.nls\.json)$/.test(p) ? p : path.posix.join(p, `{,!(node_modules)/**}`, '{*.l10n.json,package.nls.json}')));
 
 	for (const match of matches) {
 		const contents = await getL10nAzureLocalized(

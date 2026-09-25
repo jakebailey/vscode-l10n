@@ -7,7 +7,9 @@
 		"install:l10n-dev": "cd l10n-dev && npm install",
 		"watch:l10n-dev": "cd l10n-dev && npm run watch",
 		"watch:l10n": "cd l10n-dev && npm run watch",
-		"test": "jest"
+		"test:l10n": "cd l10n && npm test",
+		"test:l10n-dev": "cd l10n-dev && npm test",
+		"test": "npm run test:l10n && npm run test:l10n-dev"
 	},
 	"devDependencies": {
 		"@types/node": "^22",

@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import merge from 'deepmerge-json';
 import { ScriptAnalyzer } from "./ast/analyzer";
 import { IScriptFile, l10nJsonDetails, l10nJsonFormat } from './common';
 import { logger } from './logger';
@@ -53,8 +52,7 @@ export async function getL10nJson(fileContents: IScriptFile[]): Promise<l10nJson
 	}
 
 	logger.debug('Analyzed script files.');
-	const mergedJson: l10nJsonFormat = merge.multi({}, ...bundles);
-	return mergedJson;
+	return Object.assign({}, ...bundles);
 }
 
 /**
