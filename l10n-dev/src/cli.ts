@@ -5,153 +5,60 @@
 
 import { globSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
+import { cliHelp, parseCliArgs } from "./cliArgs";
 import { getL10nAzureLocalized, getL10nFilesFromXlf, getL10nJson, getL10nPseudoLocalized, getL10nXlf, l10nJsonFormat } from "./main";
-import yargs from 'yargs';
-import { hideBin } from 'yargs/helpers';
 import { logger, LogLevel } from "./logger";
 
 function findFiles(patterns: string[]): string[] {
 	return globSync(patterns.map(pattern => pattern.replace(/\\/g, '/'))).map(match => path.resolve(match));
 }
 
-yargs(hideBin(process.argv))
-.scriptName("vscode-l10n-dev")
-.usage('$0 <cmd> [args]')
-.option('verbose', {
-	alias: 'v',
-	boolean: true,
-	describe: 'Enable verbose logging'
-})
-.option('debug', {
-	alias: 'd',
-	boolean: true,
-	describe: 'Enable debug logging'
-})
-.middleware(function (argv) {
-	if (argv.debug) {
+export async function runCli(args: string[] = process.argv.slice(2)): Promise<void> {
+	const invocation = parseCliArgs(args);
+	if (!invocation) {
+		return;
+	}
+	if (invocation.command === 'help') {
+		console.log(cliHelp);
+		return;
+	}
+	if (invocation.command === 'version') {
+		const packageJson = JSON.parse(readFileSync(path.resolve(__dirname, '../package.json'), 'utf8'));
+		console.log(packageJson.version);
+		return;
+	}
+
+	if (invocation.debug) {
 		logger.setLogLevel(LogLevel.Debug);
-	} else if (argv.verbose) {
+	} else if (invocation.verbose) {
 		logger.setLogLevel(LogLevel.Verbose);
 	}
-})
-.command(
-	'export [args] <path..>',
-	'Export strings from source files. Supports glob patterns.',
-	yargs => {
-		yargs.positional('path', {
-			demandOption: true,
-			type: 'string',
-			array: true,
-			describe: 'TypeScript files to extract strings from. Supports folders and glob patterns.'
-		});
-		yargs.option('outDir', {
-			alias: 'o',
-			string: true,
-			describe: 'Output directory'
-		});
-	}, async function (argv) {
-		await l10nExportStrings(argv.path as string[], argv.outDir as string | undefined);
-	})
-.command(
-	'generate-xlf [args] <path..>',
-	'Generate an XLF file from a collection of `*.l10n.json` or `package.nls.json` files. Supports glob patterns.',
-	yargs => {
-		yargs.positional('path', {
-			demandOption: true,
-			type: 'string',
-			array: true,
-			normalize: true,
-			describe: 'L10N JSON files to generate an XLF from. Supports folders and glob patterns.'
-		});
-		yargs.option('outFile', {
-			demandOption: true,
-			string: true,
-			describe: 'Output file',
-			alias: 'o'
-		});
-		yargs.option('language', {
-			alias: 'l',
-			string: true,
-			default: 'en',
-			describe: 'The source language that will be written to the XLF file.'
-		});
-	}, function (argv) {
-		l10nGenerateXlf(argv.path as string[], argv.language as string, argv.outFile as string);
-	})
-.command(
-	'import-xlf [args] <path..>',
-	'Import an XLF file into a JSON l10n file',
-	yargs => {
-		yargs.positional('path', {
-			demandOption: true,
-			type: 'string',
-			array: true,
-			normalize: true,
-			describe: 'XLF files to turn into `*.l10n.<language>.json` files. Supports folders and glob patterns.'
-		});
-		yargs.option('outDir', {
-			alias: 'o',
-			string: true,
-			default: '.',
-			describe: 'Output directory that will contain the l10n.<language>.json files'
-		});
-	}, async function (argv) {
-		await l10nImportXlf(argv.path as string[], argv.outDir as string);
-	})
-.command(
-	'generate-pseudo [args] <path..>',
-	'Generate Pseudo language files for `*.l10n.json` or `package.nls.json` files. This is useful for testing localization with the Pseudo Language Language Pack in VS Code.',
-	yargs => {
-		yargs.positional('path', {
-			demandOption: true,
-			type: 'string',
-			array: true,
-			normalize: true,
-			describe: 'L10N JSON files to generate an XLF from. Supports folders and glob patterns.'
-		});
-		yargs.option('language', {
-			alias: 'l',
-			string: true,
-			default: 'qps-ploc',
-			describe: 'The Pseudo language identifier that will be used.'
-		});
-	}, function (argv) {
-		l10nGeneratePseudo(argv.path as string[], argv.language as string);
-	})
-.command(
-	'generate-azure [args] <path..>',
-	'(Experimental) Generate language files for `*.l10n.json` or `package.nls.json` files. You must create an Azure Translator instance, get the key and region, and set the AZURE_TRANSLATOR_KEY and AZURE_TRANSLATOR_REGION environment variables to these values.',
-	yargs => {
-		yargs.positional('path', {
-			demandOption: true,
-			type: 'string',
-			array: true,
-			normalize: true,
-			describe: 'L10N JSON files to generate an XLF from. Supports folders and glob patterns.'
-		});
-		yargs.option('languages', {
-			alias: 'l',
-			type: 'string',
-			array: true,
-			default: ['fr', 'it', 'de', 'es', 'ru', 'zh-cn', 'zh-tw', 'ja', 'ko', 'cs', 'pt-br', 'tr', 'pl'],
-			describe: 'The Pseudo language identifier that will be used.'
-		});
-		yargs.env('AZURE_TRANSLATOR');
-	}, async function (argv) {
-		if (!argv.key) {
-			throw new Error('AZURE_TRANSLATOR_KEY environment variable is not defined.');
-		}
-		if (!argv.region) {
-			throw new Error('AZURE_TRANSLATOR_REGION environment variable is not defined.');
-		}
-		await l10nGenerateTranslationService(
-			argv.path as string[],
-			argv.languages as string[],
-			argv.key as string,
-			argv.region as string
-		);
-	})
-.help().argv;
+
+	switch (invocation.command) {
+		case 'export':
+			await l10nExportStrings(invocation.paths, invocation.outDir);
+			break;
+		case 'generate-xlf':
+			l10nGenerateXlf(invocation.paths, invocation.language, invocation.outFile);
+			break;
+		case 'import-xlf':
+			await l10nImportXlf(invocation.paths, invocation.outDir);
+			break;
+		case 'generate-pseudo':
+			l10nGeneratePseudo(invocation.paths, invocation.language);
+			break;
+		case 'generate-azure':
+			await l10nGenerateTranslationService(invocation.paths, invocation.languages, invocation.key, invocation.region);
+			break;
+	}
+}
+
+if (require.main === module) {
+	void runCli().catch(error => {
+		console.error(error instanceof Error ? error.message : error);
+		process.exitCode = 1;
+	});
+}
 
 export async function l10nExportStrings(paths: string[], outDir?: string): Promise<void> {
 	logger.log('Searching for TypeScript/JavaScript files...');
@@ -180,7 +87,7 @@ export async function l10nExportStrings(paths: string[], outDir?: string): Promi
 	let packageJSON;
 	try {
 		packageJSON = JSON.parse(readFileSync('package.json').toString('utf-8'));
-	} catch(err) {
+	} catch {
 		// Ignore
 	}
 	if (packageJSON) {
