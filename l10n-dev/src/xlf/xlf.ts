@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as xml2js from 'xml2js';
+import { DOMParser, type Element } from '@xmldom/xmldom';
 import * as crypto from 'crypto';
 import { Line } from "./line";
 import { l10nJsonDetails, l10nJsonFormat, l10nJsonMessageFormat } from "../common";
@@ -24,28 +24,22 @@ function getComment(value: l10nJsonMessageFormat): string[] | undefined {
 	return typeof value === 'string' ? undefined : value.comment;
 }
 
-function getValue(node: any): string | undefined {
-	if (!node) {
-		return undefined;
+function getChildElements(element: Element, localName: string): Element[] {
+	const result: Element[] = [];
+	for (let child = element.firstChild; child; child = child.nextSibling) {
+		if (child.nodeType === 1 && child.localName === localName) {
+			result.push(child as Element);
+		}
 	}
-	if (typeof node === 'string') {
-		return node;
-	}
-	if (typeof node._ === 'string') {
-		return node._;
-	}
+	return result;
+}
 
-	if (Array.isArray(node) && node.length === 1) {
-		const item = node[0];
-		if (typeof item === 'string') {
-			return item;
-		}
-		if (typeof item._ === 'string') {
-			return item._;
-		}
-		return node[0]._;
-	}
-	return undefined;
+function getChildElement(element: Element, localName: string): Element | undefined {
+	return getChildElements(element, localName)[0];
+}
+
+function getValue(element: Element | undefined): string | undefined {
+	return element?.textContent ?? undefined;
 }
 
 export class XLF {
@@ -128,48 +122,59 @@ export class XLF {
 	}
 
 	static async parse(xlfString: string): Promise<l10nJsonDetails[]> {
-		const parser = new xml2js.Parser();
 		const files: l10nJsonDetails[] = [];
-		const result = await parser.parseStringPromise(xlfString);
+		const document = new DOMParser({
+			onError: (_level, message) => {
+				throw new Error(message);
+			}
+		}).parseFromString(xlfString.trimStart(), 'application/xml');
 
-		const fileNodes: any[] = result['xliff']['file'];
-		if (!fileNodes) {
+		const root = document.documentElement;
+		const fileNodes = root?.localName === 'xliff' ? getChildElements(root, 'file') : [];
+		if (fileNodes.length === 0) {
 			throw new Error('XLIFF file does not contain "xliff" or "file" node(s) required for parsing.');
 		}
 
 		fileNodes.forEach((file) => {
-			const name = file.$.original;
+			const name = file.getAttribute('original');
 			if (!name) {
 				throw new Error('XLIFF file node does not contain original attribute to determine the original location of the resource file.');
 			}
-			const language = file.$['target-language'].toLowerCase();
+			const language = file.getAttribute('target-language')?.toLowerCase();
 			if (!language) {
 				throw new Error('XLIFF file node does not contain target-language attribute to determine translated language.');
 			}
 
 			const messagesMap = new Map<string, string>();
-			const transUnits = file.body[0]['trans-unit'];
-			if (transUnits) {
-				transUnits.forEach((unit: any) => {
-					if (!unit.target) {
+			const body = getChildElement(file, 'body');
+			const transUnits = body ? getChildElements(body, 'trans-unit') : [];
+			if (transUnits.length > 0) {
+				transUnits.forEach((unit) => {
+					const targetElement = getChildElement(unit, 'target');
+					if (!targetElement) {
 						return; // No translation available
 					}
 
-					const target = getValue(unit.target);
+					const target = getValue(targetElement);
 					if (!target) {
 						throw new Error('XLIFF file does not contain full localization data. target node in one of the trans-unit nodes is not present.');
 					}
 
+					const id = unit.getAttribute('id');
+					if (!id) {
+						throw new Error('XLIFF file does not contain full localization data. id attribute in one of the trans-unit nodes is not present.');
+					}
+
 					let key: string;
-					if (!unit.$.id.startsWith(hashedIdSignal) || unit.$.id.length !== hashedIdLength) {
-						key = unit.$.id;
+					if (!id.startsWith(hashedIdSignal) || id.length !== hashedIdLength) {
+						key = id;
 					} else {
-						const source = getValue(unit.source);
+						const source = getValue(getChildElement(unit, 'source'));
 						if (!source) {
 							throw new Error('XLIFF file does not contain full localization data. source node in one of the trans-unit nodes is not present.');
 						}
 	
-						const note = getValue(unit.note);
+						const note = getValue(getChildElement(unit, 'note'));
 						key = source;
 						if (note) {
 							key += '/' + note.replace(/\r?\n/g, ''); // remove newlines
