@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import markdownit from 'markdown-it';
+import MarkdownIt from 'markdown-it';
 import TextTranslationClient, { InputTextItem, TranslatedTextItemOutput, ErrorResponseOutput, TextTranslationClient as TranslationClient } from "@azure-rest/ai-translation-text";
 import { NodeHtmlMarkdown } from 'node-html-markdown';
 import { l10nJsonFormat } from '../common';
@@ -101,9 +101,9 @@ function handleSuccess(outputs: TranslatedTextItemOutput[], keys: string[]) {
 	return files;
 }
 
-let md: markdownit | undefined;
+let md: InstanceType<typeof MarkdownIt> | undefined;
 export async function azureTranslatorTranslate(dataToLocalize: l10nJsonFormat, languages: string[], config: { azureTranslatorKey: string, azureTranslatorRegion: string }): Promise<l10nJsonFormat[]> {
-	md ??= markdownit();
+	md ??= new MarkdownIt();
 	client ??= TextTranslationClient('https://api.cognitive.microsofttranslator.com/', { key: config.azureTranslatorKey, region: config.azureTranslatorRegion });
 
 	const body: InputTextItem[] = [];
